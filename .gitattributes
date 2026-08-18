@@ -1,0 +1,7 @@
+# Default text files use LF in the repository
+* text=auto eol=lf
+
+# Windows-specific scripts use CRLF
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf

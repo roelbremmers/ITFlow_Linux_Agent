@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the ITFlow Linux agent hourly
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+Persistent=true
+RandomizedDelaySec=5min
+Unit=itflow-agent.service
+
+[Install]
+WantedBy=timers.target

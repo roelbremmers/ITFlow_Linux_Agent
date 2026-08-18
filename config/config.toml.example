@@ -1,0 +1,14 @@
+# Non-secret configuration. Do not place the API key in this file.
+base_url = "https://itflow.example.com"
+client_id = 11
+asset_status = "Deployed"
+follow_transfers = true
+persist_followed_client = false
+create_tickets = true
+request_timeout_seconds = 30
+verify_tls = true
+state_dir = "/var/lib/itflow-agent"
+
+# Used only when no systemd credential is supplied.
+# api_key_file = "/etc/itflow-agent/api-key"
+

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "itflow-linux-agent"
+version = "1.0.0"
+description = "Headless Debian/Linux asset synchronization agent for ITFlow"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
+authors = [{name = "ITFlow Linux Agent contributors"}]
+dependencies = ["requests>=2.28,<3"]
+
+[project.optional-dependencies]
+test = ["pytest>=7,<9"]
+
+[project.scripts]
+itflow-agent = "itflow_agent.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["itflow_agent*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
