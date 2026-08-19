@@ -24,21 +24,14 @@ UNIT_DIR=/etc/systemd/system
 apt-get update
 apt-get install -y python3 python3-venv python3-pip iproute2 util-linux
 
-if ! getent group itflow-agent >/dev/null 2>&1; then
-    groupadd --system itflow-agent
-fi
-if ! getent passwd itflow-agent >/dev/null 2>&1; then
-    useradd --system --gid itflow-agent --home-dir /nonexistent --shell /usr/sbin/nologin itflow-agent
-fi
-
 install -d -m 0755 "$INSTALL_DIR"
 cp -R "$PROJECT_DIR/itflow_agent" "$PROJECT_DIR/pyproject.toml" "$PROJECT_DIR/README.md" "$INSTALL_DIR/"
 python3 -m venv "$INSTALL_DIR/venv"
 "$INSTALL_DIR/venv/bin/pip" install --disable-pip-version-check --no-cache-dir "$INSTALL_DIR"
 
-install -d -m 0750 -o root -g itflow-agent "$CONFIG_DIR"
+install -d -m 0750 -o root -g root "$CONFIG_DIR"
 if [ ! -f "$CONFIG_DIR/config.toml" ]; then
-    install -m 0640 -o root -g itflow-agent "$PROJECT_DIR/config/config.toml.example" "$CONFIG_DIR/config.toml"
+    install -m 0640 -o root -g root "$PROJECT_DIR/config/config.toml.example" "$CONFIG_DIR/config.toml"
 fi
 if [ ! -f "$CONFIG_DIR/api-key" ]; then
     umask 077

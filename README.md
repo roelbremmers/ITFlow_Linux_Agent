@@ -60,11 +60,15 @@ sudo sh install.sh
 De installer:
 
 1. installeert Python, venv, pip, `iproute2` en `util-linux`;
-2. maakt de systeemuser en -groep `itflow-agent`;
-3. installeert de applicatie en virtualenv onder `/opt/itflow-agent`;
-4. maakt `/etc/itflow-agent/config.toml` als die nog niet bestaat;
-5. maakt een leeg secretbestand `/etc/itflow-agent/api-key` met mode `0600`;
-6. installeert en activeert de systemd timer, maar start hem nog niet.
+2. installeert de applicatie en virtualenv onder `/opt/itflow-agent`;
+3. maakt `/etc/itflow-agent/config.toml` als die nog niet bestaat;
+4. maakt een leeg secretbestand `/etc/itflow-agent/api-key` met mode `0600`;
+5. installeert en activeert de systemd timer, maar start hem nog niet.
+
+De service draait standaard als `root`, zodat DMI-identiteit ook beschikbaar is
+op systemen die `/sys/class/dmi/id/product_serial` voor niet-rootgebruikers
+afschermen. De unit behoudt onder meer `NoNewPrivileges=yes`,
+`ProtectSystem=strict`, `ProtectHome=yes` en de overige systemd-hardening.
 
 Bewerk daarna:
 
@@ -79,7 +83,7 @@ daarbij niet in de commandline of shellgeschiedenis:
 
 ```sh
 sudo systemd-run --wait --pipe --collect \
-  --uid=itflow-agent --gid=itflow-agent \
+  --uid=root --gid=root \
   --property=LoadCredential=itflow_api_key:/etc/itflow-agent/api-key \
   /opt/itflow-agent/venv/bin/itflow-agent \
   --config /etc/itflow-agent/config.toml --test

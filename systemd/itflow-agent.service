@@ -5,8 +5,8 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-User=itflow-agent
-Group=itflow-agent
+User=root
+Group=root
 ExecStart=/opt/itflow-agent/venv/bin/itflow-agent --config /etc/itflow-agent/config.toml
 LoadCredential=itflow_api_key:/etc/itflow-agent/api-key
 StateDirectory=itflow-agent
@@ -22,4 +22,3 @@ RestrictSUIDSGID=yes
 LockPersonality=yes
 RestrictRealtime=yes
 SystemCallArchitectures=native
-
