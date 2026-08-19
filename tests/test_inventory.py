@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from itflow_agent.inventory import collect_inventory
 
 
@@ -42,3 +44,48 @@ def test_collects_linux_inventory(tmp_path: Path):
     assert result.ip == "192.0.2.10"
     assert result.mac == "AA:BB:CC:DD:EE:FF"
     assert result.memory["total_gb"] == 1.0
+
+
+def _identity_inventory(
+    tmp_path: Path, serial: str | None, product_uuid: str | None
+):
+    dmi = tmp_path / "sys/class/dmi/id"
+    etc = tmp_path / "etc"
+    dmi.mkdir(parents=True)
+    etc.mkdir()
+    if serial is not None:
+        (dmi / "product_serial").write_text(serial, encoding="utf-8")
+    if product_uuid is not None:
+        (dmi / "product_uuid").write_text(product_uuid, encoding="utf-8")
+    (etc / "os-release").write_text('PRETTY_NAME="Debian"\n', encoding="utf-8")
+
+    def runner(command):
+        if command[0] == "systemd-detect-virt":
+            return "vmware\n"
+        if command[0] == "lsblk":
+            return '{"blockdevices": []}'
+        if command[0] == "ip":
+            return "[]"
+        raise AssertionError(command)
+
+    return collect_inventory(tmp_path, runner)
+
+
+def test_collects_vmware_serial_containing_spaces(tmp_path: Path):
+    serial = "VMware-42 13 1e f8 17 24 50 de-6c fc fe 72 c4 70 b0 db"
+    assert _identity_inventory(tmp_path, serial, None).serial == serial
+
+
+def test_falls_back_to_product_uuid_when_product_serial_is_missing(tmp_path: Path):
+    result = _identity_inventory(
+        tmp_path, None, "42131ef8-1724-50de-6cfc-fe72c470b0db\n"
+    )
+    assert result.serial == "42131EF8-1724-50DE-6CFC-FE72C470B0DB"
+
+
+@pytest.mark.parametrize("placeholder", ["Unknown", "To Be Filled By O.E.M.", "0"])
+def test_falls_back_to_product_uuid_for_generic_serial(tmp_path: Path, placeholder: str):
+    result = _identity_inventory(
+        tmp_path, placeholder, "42131ef8-1724-50de-6cfc-fe72c470b0db"
+    )
+    assert result.serial == "42131EF8-1724-50DE-6CFC-FE72C470B0DB"

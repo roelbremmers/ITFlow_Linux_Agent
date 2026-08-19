@@ -134,13 +134,17 @@ die via `systemd-creds encrypt` is gemaakt.
 
 ## Matching en transfers
 
-1. De agent leest `/sys/class/dmi/id/product_serial`.
-2. Lege, te korte en bekende generieke OEM-serials worden geweigerd.
-3. Hij zoekt exact op serial binnen de effectieve client.
-4. Bij nul resultaten volgt een globale serialzoekactie.
-5. Meer dan één resultaat in een scope is ambigu: exitcode 4, zonder mutaties.
-6. Eén globale match kan worden gevolgd als `follow_transfers = true`.
-7. Geen enkele match leidt tot enrollment.
+1. De agent leest `/sys/class/dmi/id/product_serial`, waarbij geldige interne
+   spaties (zoals in VMware-serials) behouden blijven.
+2. Als die waarde ontbreekt of onbruikbaar is, gebruikt de agent een geldige
+   `/sys/class/dmi/id/product_uuid` in het hoofdletterformaat van de Windows-agent.
+3. Lege, te korte en bekende generieke OEM-serials worden geweigerd; lege,
+   ongeldige en volledig nul/`F` UUID's worden eveneens geweigerd.
+4. Hij zoekt exact op serial binnen de effectieve client.
+5. Bij nul resultaten volgt een globale serialzoekactie.
+6. Meer dan één resultaat in een scope is ambigu: exitcode 4, zonder mutaties.
+7. Eén globale match kan worden gevolgd als `follow_transfers = true`.
+8. Geen enkele match leidt tot enrollment.
 
 `persist_followed_client = false` houdt de beheerde configuratie leidend. Bij
 `true` wordt de gevolgde client alleen in `/var/lib/itflow-agent/state.json`

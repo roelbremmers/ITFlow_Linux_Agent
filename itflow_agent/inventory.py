@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .errors import InventoryError
-from .identity import normalize_serial
+from .identity import select_hardware_serial
 from .models import Inventory
 
 Runner = Callable[[list[str]], str]
@@ -140,7 +140,10 @@ def _asset_type(root: Path, make: str, model: str, runner: Runner) -> str:
 
 def collect_inventory(root: Path = Path("/"), runner: Runner = _run) -> Inventory:
     dmi = root / "sys/class/dmi/id"
-    serial = normalize_serial(_text(dmi / "product_serial"))
+    serial = select_hardware_serial(
+        _text(dmi / "product_serial"),
+        _text(dmi / "product_uuid"),
+    )
     make = _text(dmi / "sys_vendor")
     model = _text(dmi / "product_name")
     hostname = socket.gethostname().strip()
