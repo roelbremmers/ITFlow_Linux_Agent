@@ -69,15 +69,23 @@ def _json_command(runner: Runner, command: list[str], key: str) -> list[dict[str
 def _primary_network(
     root: Path, runner: Runner
 ) -> tuple[str, str, list[dict[str, Any]]]:
-    routes = _json_command(runner, ["ip", "-json", "-4", "route", "show", "default"], "unused")
-    # ip emits a top-level JSON array rather than an object.
     try:
         parsed = json.loads(runner(["ip", "-json", "-4", "route", "show", "default"]))
         routes = parsed if isinstance(parsed, list) else []
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
         routes = []
-    routes.sort(key=lambda item: int(item.get("metric", 0)))
-    interface = str(routes[0].get("dev", "")) if routes else ""
+    usable_routes = [route for route in routes if isinstance(route, dict) and route.get("dev")]
+
+    def route_metric(route: dict[str, Any]) -> int:
+        try:
+            return int(route.get("metric") or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    usable_routes.sort(key=route_metric)
+    primary_route = usable_routes[0] if usable_routes else {}
+    interface = str(primary_route.get("dev", ""))
+    primary_ip = str(primary_route.get("prefsrc") or primary_route.get("src") or "")
 
     addresses: list[dict[str, Any]] = []
     try:
@@ -86,7 +94,6 @@ def _primary_network(
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
         pass
 
-    primary_ip = ""
     network: list[dict[str, Any]] = []
     for adapter in addresses:
         name = str(adapter.get("ifname", ""))
@@ -105,7 +112,7 @@ def _primary_network(
                 "addresses": ips,
             }
         )
-        if name == interface:
+        if name == interface and not primary_ip:
             ipv4 = next((ip for ip in ips if ":" not in ip), "")
             primary_ip = ipv4
 

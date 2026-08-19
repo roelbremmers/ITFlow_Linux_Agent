@@ -30,7 +30,9 @@ def test_collects_linux_inventory(tmp_path: Path):
         if command[0] == "lsblk":
             return json.dumps({"blockdevices": [{"name": "sda", "type": "disk"}]})
         if "route" in command:
-            return json.dumps([{"dev": "eth0", "metric": 100}])
+            return json.dumps(
+                [{"dev": "eth0", "metric": 100, "prefsrc": "192.0.2.10"}]
+            )
         if "address" in command:
             return json.dumps([{
                 "ifname": "eth0", "operstate": "UP", "address": "aa:bb:cc:dd:ee:ff",
@@ -44,6 +46,59 @@ def test_collects_linux_inventory(tmp_path: Path):
     assert result.ip == "192.0.2.10"
     assert result.mac == "AA:BB:CC:DD:EE:FF"
     assert result.memory["total_gb"] == 1.0
+
+
+def test_collects_primary_ipv4_from_debian_default_route(tmp_path: Path):
+    dmi = tmp_path / "sys/class/dmi/id"
+    etc = tmp_path / "etc"
+    dmi.mkdir(parents=True)
+    etc.mkdir()
+    (dmi / "product_serial").write_text("ABC123\n", encoding="utf-8")
+    (etc / "os-release").write_text('PRETTY_NAME="Debian"\n', encoding="utf-8")
+
+    def runner(command):
+        if command[:5] == ["ip", "-json", "-4", "route", "show"]:
+            return json.dumps(
+                [
+                    {
+                        "dst": "default",
+                        "gateway": "10.20.30.1",
+                        "dev": "ens192",
+                        "protocol": "dhcp",
+                        "prefsrc": "10.20.30.42",
+                        "metric": 100,
+                    }
+                ]
+            )
+        if command == ["ip", "-json", "address", "show"]:
+            return json.dumps(
+                [
+                    {
+                        "ifname": "ens192",
+                        "operstate": "UP",
+                        "address": "00:50:56:aa:bb:cc",
+                        "addr_info": [
+                            {
+                                "family": "inet",
+                                "local": "10.20.30.42",
+                                "prefixlen": 24,
+                                "scope": "global",
+                            }
+                        ],
+                    }
+                ]
+            )
+        if command[0] == "systemd-detect-virt":
+            return "vmware\n"
+        if command[0] == "lsblk":
+            return '{"blockdevices": []}'
+        raise AssertionError(command)
+
+    result = collect_inventory(tmp_path, runner)
+
+    assert result.ip == "10.20.30.42"
+    assert result.mac == "00:50:56:AA:BB:CC"
+    assert result.network[0]["addresses"] == ["10.20.30.42"]
 
 
 def _identity_inventory(

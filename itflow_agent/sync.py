@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import html
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 from .api import ITFlowClient
@@ -33,6 +33,10 @@ def _asset_id(response: dict[str, Any]) -> int | None:
         except (TypeError, ValueError):
             return None
     return None
+
+
+def _last_check_in() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _details(inventory: Inventory) -> str:
@@ -76,7 +80,7 @@ class SyncEngine:
     def _create(self, inventory: Inventory, client_id: int, dry_run: bool) -> SyncResult:
         fields = (
             "asset_name", "asset_serial", "asset_make", "asset_model", "asset_os",
-            "asset_mac", "asset_ip", "asset_type", "asset_status",
+            "asset_mac", "asset_ip", "asset_type", "asset_status", "asset_description",
         )
         if dry_run:
             LOG.info("DRY-RUN would create asset client_id=%s fields=%s", client_id, ",".join(fields))
@@ -93,6 +97,7 @@ class SyncEngine:
                 "asset_ip": inventory.ip,
                 "asset_type": inventory.asset_type,
                 "asset_status": self.config.asset_status,
+                "asset_description": "Last Check-In: " + _last_check_in(),
             }
         )
         asset_id = _asset_id(response)
@@ -133,13 +138,11 @@ class SyncEngine:
         if not str(asset.get("asset_name", "")).strip():
             changes["asset_name"] = inventory.hostname
 
-        if inventory.mac and _normalized(state.get("last_sent_mac")) != _normalized(inventory.mac):
+        if inventory.mac and _normalized(asset.get("asset_mac")) != _normalized(inventory.mac):
             changes["asset_mac"] = inventory.mac
-        if inventory.ip and _normalized(state.get("last_sent_ip")) != _normalized(inventory.ip):
+        if inventory.ip and _normalized(asset.get("asset_ip")) != _normalized(inventory.ip):
             changes["asset_ip"] = inventory.ip
-        changes["asset_description"] = (
-            "Last Check-In: " + datetime.now(timezone.utc).isoformat(timespec="seconds")
-        )
+        changes["asset_description"] = "Last Check-In: " + _last_check_in()
         fields = tuple(sorted(changes))
         if dry_run:
             LOG.info("DRY-RUN would update asset_id=%s fields=%s", asset_id, ",".join(fields))

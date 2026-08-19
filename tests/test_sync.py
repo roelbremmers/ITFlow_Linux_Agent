@@ -1,7 +1,10 @@
+from dataclasses import replace
+from datetime import datetime
+
 import pytest
 
 from itflow_agent.errors import AmbiguousMatchError
-from itflow_agent.sync import SyncEngine
+from itflow_agent.sync import SyncEngine, _last_check_in
 
 from .helpers import FakeClient, config, inventory
 
@@ -13,6 +16,34 @@ def test_creates_when_serial_does_not_exist(tmp_path):
     assert result.asset_id == 99
     assert any(call[0] == "create" for call in client.calls)
     assert any(call[0] == "ticket" for call in client.calls)
+
+
+def test_create_sends_asset_ip_and_formatted_check_in(tmp_path, monkeypatch):
+    class LocalDateTime:
+        @classmethod
+        def now(cls):
+            return datetime(2026, 8, 19, 16, 0, 10)
+
+    monkeypatch.setattr("itflow_agent.sync.datetime", LocalDateTime)
+    client = FakeClient()
+
+    SyncEngine(config(tmp_path), client).run(inventory(), {})
+
+    payload = next(call[1] for call in client.calls if call[0] == "create")
+    assert payload["asset_ip"] == "192.0.2.10"
+    assert payload["asset_description"] == "Last Check-In: 2026-08-19 16:00:10"
+    assert "T" not in payload["asset_description"]
+
+
+def test_last_check_in_uses_os_local_time(monkeypatch):
+    class LocalDateTime:
+        @classmethod
+        def now(cls):
+            return datetime(2026, 8, 19, 16, 0, 10)
+
+    monkeypatch.setattr("itflow_agent.sync.datetime", LocalDateTime)
+
+    assert _last_check_in() == "2026-08-19 16:00:10"
 
 
 def test_dry_run_never_posts(tmp_path):
@@ -43,6 +74,48 @@ def test_updates_matched_asset(tmp_path):
     assert "asset_description" in update
 
 
+def test_update_repairs_missing_asset_ip_even_when_state_says_it_was_sent(tmp_path):
+    asset = {
+        "asset_id": 42,
+        "asset_client_id": 11,
+        "asset_name": "debian-01",
+        "asset_status": "Deployed",
+        "asset_type": "Server",
+        "asset_os": "Debian GNU/Linux 13",
+        "asset_make": "Dell Inc.",
+        "asset_model": "PowerEdge R640",
+        "asset_ip": "",
+    }
+    client = FakeClient(local=[asset])
+
+    SyncEngine(config(tmp_path), client).run(
+        inventory(), {"last_sent_ip": "192.0.2.10"}
+    )
+
+    update = next(call[1] for call in client.calls if call[0] == "update")
+    assert update["asset_ip"] == "192.0.2.10"
+
+
+def test_update_does_not_overwrite_asset_ip_when_inventory_ip_is_empty(tmp_path):
+    asset = {
+        "asset_id": 42,
+        "asset_client_id": 11,
+        "asset_name": "debian-01",
+        "asset_status": "Deployed",
+        "asset_type": "Server",
+        "asset_os": "Debian GNU/Linux 13",
+        "asset_make": "Dell Inc.",
+        "asset_model": "PowerEdge R640",
+        "asset_ip": "192.0.2.99",
+    }
+    client = FakeClient(local=[asset])
+
+    SyncEngine(config(tmp_path), client).run(replace(inventory(), ip=""), {})
+
+    update = next(call[1] for call in client.calls if call[0] == "update")
+    assert "asset_ip" not in update
+
+
 def test_follows_transfer_and_updates_same_run(tmp_path):
     moved = {
         "asset_id": 55,
@@ -68,4 +141,3 @@ def test_refuses_ambiguous_global_match(tmp_path):
     with pytest.raises(AmbiguousMatchError):
         SyncEngine(config(tmp_path), client).run(inventory(), {})
     assert not any(call[0] in {"create", "update", "ticket"} for call in client.calls)
-

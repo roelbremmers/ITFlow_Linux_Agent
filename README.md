@@ -43,7 +43,11 @@ De agent gebruikt:
 Create schrijft `asset_name`, `asset_serial`, `asset_make`, `asset_model`,
 `asset_os`, `asset_mac`, `asset_ip`, `asset_type` en `asset_status`. Update
 schrijft gewijzigde lokale velden, een lege `asset_name`, gewijzigde primaire
-MAC/IP en altijd `asset_description` met een UTC check-in.
+MAC/IP en altijd `asset_description` met een check-in in de lokale servertijd,
+geformatteerd als `YYYY-MM-DD HH:MM:SS`. Bij create worden zowel `asset_ip` als
+de eerste check-in direct meegestuurd. Bij updates wordt de actuele ITFlow-waarde
+vergeleken, zodat een ontbrekend IP opnieuw wordt aangeboden zonder een bestaand
+IP met een lege detectiewaarde te overschrijven.
 
 De API-key wordt wegens het bestaande ITFlow-contract bij GET als parameter
 verstuurd, maar wordt nooit door de agent gelogd. `requests` verzorgt correcte
